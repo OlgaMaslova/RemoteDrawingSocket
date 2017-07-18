@@ -6,14 +6,17 @@ var io = require('socket.io')(http);
 var colors = ["#424242","#E53935","#8E24AA","#D81B60","#00897B","#FDD835","#039BE5","#E91E63","#2196F3","#3F51B5","#4CAF50","#FFC107","#FF9800","#FFEB3B","#A282B5","#81E7F9","#E0EF53"];
 var peoples = new Array();
 var roomName = new String();
+var numberOfUsers = 0;
+var numberOfRooms = 0;
 
 //ExpressJS
-app.use(express.static('public'));
+//app.use(express.static('public'));
 
 
 app.get('/', function(req, res){
-  res.sendFile('/index.html');
+   res.sendFile('/home/olga/Documents/dev/java_android/LearningProject/RemoteSocket/webinterface.html');
 });
+
 
 
 //Socket.io
@@ -24,6 +27,11 @@ http.listen(3000, function(){
 });
 
 io.on('connection', function(socket){
+	console.log('A user '+socket.id+' is connected');
+	numberOfUsers++;
+	console.log(numberOfUsers);
+	io.emit("dataUsers", numberOfUsers);
+  io.emit("dataRooms", numberOfRooms);
     // Attributes the color, joins the room
 	socket.on("joinRoom",function(data){
 		var id = socket.id;
@@ -31,48 +39,57 @@ io.on('connection', function(socket){
 		var roomName = data.room;
 		var thisUser = {
 		"id" : id,
-        "color" : color,
+    "color" : color,
 		"room": roomName
 		};
 	    console.log(thisUser);
+	    numberOfRooms++;
+	    console.log("Number of Rooms " + numberOfRooms);
 	    for(var i = 0, len = peoples.length; i < len; i++) {
-			if (thisUser === peoples[i]) {
-				var IsJoined = true;
-				io.in(roomName).emit("ifJoined", IsJoined);
-			} else {
-				socket.join(roomName);
-				var l = arrayObjectIndexOf(peoples, id, "id");
-				peoples[l].color = color;
-				peoples[l].room = roomName;
-				console.log(id + ' user is in room '+roomName);
-				console.log (peoples);
-			}  
-		}
-		 
-        io.in(roomName).emit("me", thisUser);
-	   
-        io.emit("userList", peoples);	
+			     if (thisUser === peoples[i]) {
+				         var IsJoined = true;
+				             io.in(roomName).emit("ifJoined", IsJoined);
+			     } else {
+				   socket.join(roomName);
+				   var l = arrayObjectIndexOf(peoples, id, "id");
+				   peoples[l].color = color;
+				   peoples[l].room = roomName;
+				   }
+	    }
+
+      io.in(roomName).emit("me", thisUser);
+      io.emit("userList", peoples);
+	    io.emit("dataRooms", numberOfRooms);
 	})
+
+
 	// Leave room
 	socket.on ("leave", function(){
-		var id = socket.id; 
-		var l = arrayObjectIndexOf(peoples, id, "id");
+		var l = arrayObjectIndexOf(peoples, socket.id, "id");
 		var roomName = peoples[l].room;
-		socket.leave(roomName);
-		console.log ('User ' + id + ' left the room ' + roomName);
+    socket.leave(roomName);
+    peoples[l].room = null;
+		var n = arrayObjectIndexOf(peoples, roomName, "room");
+    console.log ('User ' + socket.id + ' left the room ' + roomName);
+		if (n == -1) {
+		    numberOfRooms--;
+		}
+		console.log("Number of Rooms " + numberOfRooms);
+		io.emit("dataRooms", numberOfRooms);
+
 	})
 
     //Log in
     socket.on("login", function(){
       var id = socket.id;
       peoples.push({ "id" : id, "color" : null, "room" : null });
-	  console.log(peoples);  
+	  console.log(peoples);
 	  if (peoples.length===1) {
         console.log(peoples.length + ' user connected');
 	  } else {
 		  console.log(peoples.length + ' users connected');
 	  }
-	  	  
+
     })
 
     socket.on('clear', function(){
@@ -86,16 +103,17 @@ io.on('connection', function(socket){
        "coordinates" : coordinates,
        "drawer" : socket.id
     };
-    //console.log(objectToSend);
+
       socket.broadcast.emit("receiveDrawing", objectToSend);
     });
-	//Change the color, check if it the background color, send the msg "You are Eraser"
-	socket.on('colorChanging', function(backgrouncolor){
-      	  var newColor = colors[Math.floor(Math.random()*17)];
-	  var msg = false;
-	  if (newColor === backgrouncolor.color) {
+
+    //Change the color, check if it the background color, send the msg "You are Eraser"
+    socket.on('colorChanging', function(backgrouncolor){
+      	 var newColor = colors[Math.floor(Math.random()*17)];
+	 var msg = false;
+	 if (newColor === backgrouncolor.color) {
 		  var l = arrayObjectIndexOf(peoples, newColor, "color");
-		  if (l == -1) { 
+		  if (l == -1) {
 		     msg =  true;
 		  } else {
 			// Check if there is Eraser in the room, if yes - attribute new color
@@ -104,22 +122,35 @@ io.on('connection', function(socket){
 			  l = arrayObjectIndexOf(peoples, newColor, "color");
 			}
 		  }
-	  } 
-	  var newColorObject = {
+	  }
+	 var newColorObject = {
 		  "color" : newColor,
 		  "eraser" : msg
 		  };
-	  console.log(newColorObject);
-      socket.emit("newColor", newColorObject);
+	 console.log(newColorObject);
+         socket.emit("newColor", newColorObject);
     });
-	// 
-	
+	//
+
 
     socket.on("disconnect", function(){
         console.log("bye bye "+socket.id);
-        peoples.splice(arrayObjectIndexOf(peoples, socket.id, "id"), 1)
+        var l = arrayObjectIndexOf(peoples, socket.id, "id");
+	      var room = peoples[l].room;
+	      var n = arrayObjectIndexOf(peoples, room, "room");
+	      if (n == -1) {
+	           numberOfRooms--;
+	           console.log(numberOfRooms);
+	      }
+        numberOfUsers--;
+	       io.emit("dataUsers", numberOfUsers);
+         io.emit("dataRooms", numberOfRooms);
+	       peoples.splice(arrayObjectIndexOf(peoples, socket.id, "id"), 1);
     })
+
 });
+
+
 
 function arrayObjectIndexOf(myArray, searchTerm, property) {
     for(var i = 0, len = myArray.length; i < len; i++) {
