@@ -91,13 +91,12 @@ io.on('connection', function(socket){
     });
 	//Change the color, check if it the background color, send the msg "You are Eraser"
 	socket.on('colorChanging', function(backgrouncolor){
-      var newColor = colors[Math.floor(Math.random()*17)];
-	  var receivedColor = backgrouncolor.color;
-	  var msg =  "";
-	  if (newColor === receivedColor) {
+      	  var newColor = colors[Math.floor(Math.random()*17)];
+	  var msg = false;
+	  if (newColor === backgrouncolor.color) {
 		  var l = arrayObjectIndexOf(peoples, newColor, "color");
 		  if (l == -1) { 
-		     msg =  "You are Eraser";
+		     msg =  true;
 		  } else {
 			// Check if there is Eraser in the room, if yes - attribute new color
 			while (0<=l<peoples.length) {
@@ -108,7 +107,7 @@ io.on('connection', function(socket){
 	  } 
 	  var newColorObject = {
 		  "color" : newColor,
-		  "message" : msg
+		  "eraser" : msg
 		  };
 	  console.log(newColorObject);
       socket.emit("newColor", newColorObject);
