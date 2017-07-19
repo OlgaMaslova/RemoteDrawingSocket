@@ -18,7 +18,6 @@ app.get('/', function(req, res){
 });
 
 
-
 //Socket.io
 
 
@@ -32,6 +31,7 @@ io.on('connection', function(socket){
 	console.log(numberOfUsers);
 	io.emit("dataUsers", numberOfUsers);
   io.emit("dataRooms", numberOfRooms);
+
     // Attributes the color, joins the room
 	socket.on("joinRoom",function(data){
 		var id = socket.id;
@@ -56,15 +56,15 @@ io.on('connection', function(socket){
 				   peoples[l].room = roomName;
 				   }
 	    }
-
+      return peoples;
       io.in(roomName).emit("me", thisUser);
       io.emit("userList", peoples);
 	    io.emit("dataRooms", numberOfRooms);
-	})
-
+	});
 
 	// Leave room
 	socket.on ("leave", function(){
+    console.log(peoples);
 		var l = arrayObjectIndexOf(peoples, socket.id, "id");
 		var roomName = peoples[l].room;
     socket.leave(roomName);
@@ -76,76 +76,88 @@ io.on('connection', function(socket){
 		}
 		console.log("Number of Rooms " + numberOfRooms);
 		io.emit("dataRooms", numberOfRooms);
+    return peoples;
+	});
 
-	})
-
-    //Log in
+  //Log in
     socket.on("login", function(){
       var id = socket.id;
       peoples.push({ "id" : id, "color" : null, "room" : null });
-	  console.log(peoples);
-	  if (peoples.length===1) {
+	    console.log(peoples);
+	    if (peoples.length===1) {
         console.log(peoples.length + ' user connected');
-	  } else {
+	    } else {
 		  console.log(peoples.length + ' users connected');
-	  }
+	    }
+      return peoples;
+    });
 
-    })
+  //Clear all drawings in particular room
+    socket.on ("clearRoom", function(data){
+      var roomName = data.room;
+      io.in(roomName).emit("clear");
+    });
 
-    socket.on('clear', function(){
+
+   //Clear all drawings
+    socket.on("clear", function(){
       io.emit("clear");
     })
 
-    //Transfer coordinates
+  //Transfer coordinates
     socket.on('drawing', function(coordinates){
-
-      var objectToSend = {
+       var n = arrayObjectIndexOf(peoples, socket.id, "id");
+       var color = peoples[n].color;
+       var objectToSend = {
        "coordinates" : coordinates,
        "drawer" : socket.id
     };
-
-      socket.broadcast.emit("receiveDrawing", objectToSend);
+    //console.log(objectToSend);
+       socket.emit("receiveDrawing", objectToSend);
     });
 
     //Change the color, check if it the background color, send the msg "You are Eraser"
     socket.on('colorChanging', function(backgrouncolor){
       	 var newColor = colors[Math.floor(Math.random()*17)];
-	 var msg = false;
-	 if (newColor === backgrouncolor.color) {
-		  var l = arrayObjectIndexOf(peoples, newColor, "color");
-		  if (l == -1) {
-		     msg =  true;
-		  } else {
-			// Check if there is Eraser in the room, if yes - attribute new color
-			while (0<=l<peoples.length) {
-			  newColor = colors[Math.floor(Math.random()*17)];
-			  l = arrayObjectIndexOf(peoples, newColor, "color");
-			}
-		  }
-	  }
-	 var newColorObject = {
-		  "color" : newColor,
-		  "eraser" : msg
-		  };
-	 console.log(newColorObject);
+	       var msg = false;
+         var n = arrayObjectIndexOf(peoples, socket.id, "id");
+         console.log(newColor);
+	       if (newColor === backgrouncolor.color) {
+         // Check if there is Eraser in the room, if yes - attribute new color
+               var l = arrayObjectIndexOf(peoples, newColor, "color");
+               console.log(l);
+               msg =  true;
+               while (l>=0 && newColor === backgrouncolor.color) {
+                    newColor = colors[Math.floor(Math.random()*17)];
+                    l = arrayObjectIndexOf(peoples, newColor, "color");
+                    msg = false;
+               }
+	       }
+	       var newColorObject = {
+		         "color" : newColor,
+		         "eraser" : msg
+		     };
+         peoples[n].color = newColor;
+	       console.log(newColorObject);
          socket.emit("newColor", newColorObject);
+         return peoples;
     });
-	//
 
 
+   // Disconnect
     socket.on("disconnect", function(){
-        console.log("bye bye "+socket.id);
-        var l = arrayObjectIndexOf(peoples, socket.id, "id");
-	      var room = peoples[l].room;
-	      var n = arrayObjectIndexOf(peoples, room, "room");
-	      if (n == -1) {
-	           numberOfRooms--;
-	           console.log(numberOfRooms);
-	      }
-        numberOfUsers--;
-	       io.emit("dataUsers", numberOfUsers);
-         io.emit("dataRooms", numberOfRooms);
-	       peoples.splice(arrayObjectIndexOf(peoples, socket.id, "id"), 1);
+      console.log("bye bye "+socket.id);
+      var l = arrayObjectIndexOf(peoples, socket.id, "id");
+	    var room = peoples[l].room;
+      var n = arrayObjectIndexOf(peoples, room, "room");
+	    if (n == -1) {
+        numberOfRooms--;
+        console.log(numberOfRooms);
+	    }
+      numberOfUsers--;
+	    io.emit("dataUsers", numberOfUsers);
+      io.emit("dataRooms", numberOfRooms);
+	    peoples.splice(arrayObjectIndexOf(peoples, socket.id, "id"), 1);
     })
 
 });
