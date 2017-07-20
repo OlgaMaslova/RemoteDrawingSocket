@@ -37,29 +37,31 @@ io.on('connection', function(socket){
 		var id = socket.id;
 		var color = colors[Math.floor(Math.random()*17)];
 		var roomName = data.room;
+    var pseudo = data.name;
 		var thisUser = {
 		"id" : id,
+    "pseudo" : pseudo,
     "color" : color,
 		"room": roomName
 		};
 	    console.log(thisUser);
-	    numberOfRooms++;
-	    console.log("Number of Rooms " + numberOfRooms);
-	    for(var i = 0, len = peoples.length; i < len; i++) {
-			     if (thisUser === peoples[i]) {
-				         var IsJoined = true;
-				             io.in(roomName).emit("ifJoined", IsJoined);
-			     } else {
-				   socket.join(roomName);
-				   var l = arrayObjectIndexOf(peoples, id, "id");
-				   peoples[l].color = color;
-				   peoples[l].room = roomName;
-				   }
-	    }
-      return peoples;
-      io.in(roomName).emit("me", thisUser);
+      socket.join(roomName);
+      var l = arrayObjectIndexOf(peoples, id, "id");
+      peoples[l].color = color;
+
+      for(var i = 0, len = peoples.length; i < len ; i++) {
+			     if (roomName === peoples[i].room) {
+				       console.log("Room exists already");
+           } else {
+               numberOfRooms++;
+           }
+           peoples[l].room = roomName;
+      }
+      console.log("Number of Rooms " + numberOfRooms);
+      socket.emit("me", thisUser);
       io.emit("userList", peoples);
 	    io.emit("dataRooms", numberOfRooms);
+      return peoples;
 	});
 
 	// Leave room
@@ -80,11 +82,12 @@ io.on('connection', function(socket){
 	});
 
   //Log in
-    socket.on("login", function(){
+    socket.on("login", function(data){
       var id = socket.id;
-      peoples.push({ "id" : id, "color" : null, "room" : null });
+      var pseudo = data.pseudo;
+      peoples.push({ "id" : id, "pseudo" : pseudo, "color" : null, "room" : null });
 	    console.log(peoples);
-	    if (peoples.length===1) {
+	    if (peoples.length === 1) {
         console.log(peoples.length + ' user connected');
 	    } else {
 		  console.log(peoples.length + ' users connected');
@@ -106,14 +109,18 @@ io.on('connection', function(socket){
 
   //Transfer coordinates
     socket.on('drawing', function(coordinates){
+
        var n = arrayObjectIndexOf(peoples, socket.id, "id");
+       var pseudo = peoples[n].pseudo;
+       var room = peoples[n].room;
        var color = peoples[n].color;
        var objectToSend = {
        "coordinates" : coordinates,
-       "drawer" : socket.id
-    };
-    //console.log(objectToSend);
-       socket.emit("receiveDrawing", objectToSend);
+       "drawer" : pseudo,
+       "color" : color
+       };
+
+       io.in(room).emit("receiveDrawing", objectToSend);
     });
 
     //Change the color, check if it the background color, send the msg "You are Eraser"
@@ -149,15 +156,16 @@ io.on('connection', function(socket){
       console.log("bye bye "+socket.id);
       var l = arrayObjectIndexOf(peoples, socket.id, "id");
 	    var room = peoples[l].room;
+      peoples.splice(l, 1);
       var n = arrayObjectIndexOf(peoples, room, "room");
-	    if (n == -1) {
+      if (n == -1) {
         numberOfRooms--;
-        console.log(numberOfRooms);
+        console.log("number Of Rooms " + numberOfRooms);
 	    }
       numberOfUsers--;
 	    io.emit("dataUsers", numberOfUsers);
       io.emit("dataRooms", numberOfRooms);
-	    peoples.splice(arrayObjectIndexOf(peoples, socket.id, "id"), 1);
+	    return peoples;
     })
 
 });
