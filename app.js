@@ -9,6 +9,19 @@ var roomName = new String();
 var numberOfUsers = 0;
 var numberOfRooms = 0;
 
+var MongoClient = require('mongodb').MongoClient
+  , assert = require('assert');
+
+// Connection URL
+var url = 'mongodb://localhost:27017/data';
+var myDb;
+
+//Connect to Mongo database
+MongoClient.connect(url, function(err, db) {
+      assert.equal(null, err);
+      console.log("Connected successfully to database server");
+      myDb = db;
+      
 //ExpressJS
 //app.use(express.static('public'));
 
@@ -26,7 +39,7 @@ http.listen(3000, function(){
 });
 
 io.on('connection', function(socket){
-	console.log('A user '+socket.id+' is connected');
+  console.log('A user '+socket.id+' is connected');
 	numberOfUsers++;
 	console.log(numberOfUsers);
 	io.emit("dataUsers", numberOfUsers);
@@ -59,8 +72,11 @@ io.on('connection', function(socket){
       }
       console.log("Number of Rooms " + numberOfRooms);
       socket.emit("me", thisUser);
-      io.emit("userList", peoples);
-	    io.emit("dataRooms", numberOfRooms);
+      io.emit("dataRooms", numberOfRooms);
+
+    myDb.collection('Users').drop (function(err, result) {
+          console.log("Collection removed");
+      });
       return peoples;
 	});
 
@@ -107,6 +123,7 @@ io.on('connection', function(socket){
       io.emit("clear");
     })
 
+
   //Transfer coordinates
     socket.on('drawing', function(coordinates){
 
@@ -119,8 +136,17 @@ io.on('connection', function(socket){
        "drawer" : pseudo,
        "color" : color
        };
-
        io.in(room).emit("receiveDrawing", objectToSend);
+       console.log(objectToSend);
+         //Send the drawing to the database
+
+       myDb.collection('Users').insert(
+           { userId : peoples[n].id, pseudo : peoples[n].pseudo, color: peoples[n].color, room: peoples[n].room,
+           coordinates_old : coordinates.old, coordinates_new : coordinates.new}, function(err, result) {
+           assert.equal(err, null);
+           //console.log("Inserted coordinates information for " + peoples[n].id);
+       });
+
     });
 
     //Change the color, check if it the background color, send the msg "You are Eraser"
@@ -165,11 +191,19 @@ io.on('connection', function(socket){
       numberOfUsers--;
 	    io.emit("dataUsers", numberOfUsers);
       io.emit("dataRooms", numberOfRooms);
+
+      myDb.collection('Users').find({}).toArray(function(err, docs) {
+           assert.equal(err, null);
+           console.log("Found the following records");
+           console.log(docs);
+
+       });
 	    return peoples;
     })
 
-});
+  });
 
+});
 
 
 function arrayObjectIndexOf(myArray, searchTerm, property) {

@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "description": "Remote Drawing",
   "dependencies": {
-    "express": "^4.10.2",
-    "socket.io": "^1.7.2"
+    "express": "^4.15.3",
+    "mongodb": "^2.2.30",
+    "mongodb-dbpath": "0.0.1",
+    "socket.io": "^1.7.4"
   }
 }
