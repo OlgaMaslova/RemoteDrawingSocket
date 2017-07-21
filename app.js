@@ -21,7 +21,7 @@ MongoClient.connect(url, function(err, db) {
       assert.equal(null, err);
       console.log("Connected successfully to database server");
       myDb = db;
-      
+
 //ExpressJS
 //app.use(express.static('public'));
 
@@ -174,6 +174,18 @@ io.on('connection', function(socket){
 	       console.log(newColorObject);
          socket.emit("newColor", newColorObject);
          return peoples;
+    });
+
+    // Change the background color
+    socket.on('backgroundChange', function(backgrouncolor){
+      var newColor = colors[Math.floor(Math.random()*17)];
+      while (newColor === backgrouncolor.color) {
+           newColor = colors[Math.floor(Math.random()*17)];
+      }
+      var newColorObject = {
+          "color" : newColor,
+      };
+      io.emit("newBackground", newColorObject);
     });
 
 
