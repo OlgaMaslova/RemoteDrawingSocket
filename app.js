@@ -8,6 +8,7 @@ var peoples = new Array();
 var roomName = new String();
 var numberOfUsers = 0;
 var numberOfRooms = 0;
+var userExists = false;
 
 var MongoClient = require('mongodb').MongoClient
   , assert = require('assert');
@@ -74,7 +75,7 @@ io.on('connection', function(socket){
       socket.emit("me", thisUser);
       io.emit("dataRooms", numberOfRooms);
 
-    myDb.collection('Users').drop (function(err, result) {
+     myDb.collection('Users').drop (function(err, result) {
           console.log("Collection removed");
       });
       return peoples;
@@ -83,14 +84,17 @@ io.on('connection', function(socket){
 	// Leave room
 	socket.on ("leave", function(){
     console.log(peoples);
+    // Index of the current Socket Id
 		var l = arrayObjectIndexOf(peoples, socket.id, "id");
 		var roomName = peoples[l].room;
     socket.leave(roomName);
     peoples[l].room = null;
-		var n = arrayObjectIndexOf(peoples, roomName, "room");
     console.log ('User ' + socket.id + ' left the room ' + roomName);
-		if (n == -1) {
-		    numberOfRooms--;
+    // Index of User(s) from the same room as the leaving User
+		var n = arrayObjectIndexOf(peoples, roomName, "room");
+    // No more Users left in this Room
+    if (n == -1) {
+        numberOfRooms--;
 		}
 		console.log("Number of Rooms " + numberOfRooms);
 		io.emit("dataRooms", numberOfRooms);
@@ -101,20 +105,30 @@ io.on('connection', function(socket){
     socket.on("login", function(data){
       var id = socket.id;
       var pseudo = data.pseudo;
-      peoples.push({ "id" : id, "pseudo" : pseudo, "color" : null, "room" : null });
-	    console.log(peoples);
-	    if (peoples.length === 1) {
-        console.log(peoples.length + ' user connected');
-	    } else {
-		  console.log(peoples.length + ' users connected');
-	    }
-      return peoples;
+      // Checking if pseudo already exists
+      var n = arrayObjectIndexOf(peoples, data.pseudo, "pseudo");
+      if (n == -1) {
+        //Commit new user
+          userExists = false;
+          peoples.push({ "id" : id, "pseudo" : pseudo, "color" : null, "room" : null });
+	        console.log(peoples);
+	        if (peoples.length === 1) {
+            console.log(peoples.length + ' user connected');
+	        } else {
+		      console.log(peoples.length + ' users connected');
+	        }
+      } else {userExists = true}
+      // Pseudo exists, have to choose another pseudo
+       var exists = {
+       userExists: userExists };
+       io.emit("userExists", exists);
+       return peoples;
     });
 
   //Clear all drawings in particular room
     socket.on ("clearRoom", function(data){
       var roomName = data.room;
-      io.in(roomName).emit("clear");
+      io.in(roomName).emit("clearRoom");
     });
 
 
@@ -179,13 +193,14 @@ io.on('connection', function(socket){
     // Change the background color
     socket.on('backgroundChange', function(backgrouncolor){
       var newColor = colors[Math.floor(Math.random()*17)];
+      var roomName = backgrouncolor.room;
       while (newColor === backgrouncolor.color) {
            newColor = colors[Math.floor(Math.random()*17)];
       }
       var newColorObject = {
           "color" : newColor,
       };
-      io.emit("newBackground", newColorObject);
+      io.in(roomName).emit("newBackground", newColorObject);
     });
 
 
